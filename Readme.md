@@ -17,6 +17,8 @@ It is a Basic GUI which has a text window which displays messages from the GUI a
 
 `Close CLI` button: Closes the GUI window
 
+`Light Indicator`: The Red light at the end shows the status of connection with device, Connected it will be green, otherwise red
+
 ## GUI
 ![GUI](https://github.com/saurabhparulekar24/SerialTerminalApp/blob/main/images/GUI.png)
 
