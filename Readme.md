@@ -20,3 +20,6 @@ It is a Basic GUI which has a text window which displays messages from the GUI a
 ## GUI
 ![GUI](https://github.com/saurabhparulekar24/SerialTerminalApp/blob/main/images/GUI.png)
 
+## How to Run
+Just double click gui_manager.py
+
