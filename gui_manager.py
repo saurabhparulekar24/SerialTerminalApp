@@ -4,6 +4,9 @@ from tkinter import scrolledtext
 import threading
 from enum import Enum
 from serial_manager import SerialManager
+import matplotlib.pyplot as plt
+from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
+from threading import Event
 
 
 class GUIManager:
@@ -26,11 +29,14 @@ class GUIManager:
         RESET = "reset\n"
         VERSION = "version\n"
         TICKS = "ticks\n"
+        IMU = "imu\n"
 
     def __init__(self) -> None:
         """
         Initialize the GUIManager.
         """
+        self.graph_event = Event()
+        self.accelerometer_values = {'x':[],'y':[],'z':[]}
         print("Gui Initialized")
 
     def init_serial_manager(self) -> None:
@@ -40,6 +46,7 @@ class GUIManager:
         self.serial_manager = SerialManager(self.print_gui, self.print_device)
         self.__start_thread(self.serial_manager.find_edbg_port)
         self.__start_thread(function=self.update_light_indicator)
+        self.__start_thread(function=self.graph_accelerometer_values)
 
     def print_gui(self, string: str) -> None:
         """
@@ -102,6 +109,55 @@ class GUIManager:
                     self.canvas.itemconfig(self.light_indicator, fill="red")
             time.sleep(0.5)
 
+    def graph_accelerometer_values(self) -> None:
+        """
+        Continuously update the graph with accelerometer values.
+        """
+        while True:
+            if self.graph_event.is_set():
+                self.serial_manager.send_data(self.CLICommands.IMU.value)
+                while("Ax" not in self.serial_manager.data and self.serial_manager.data is not None): pass
+                print(self.serial_manager.data)
+                accelerometer_data = self.parse_accelerometer_data()
+                if accelerometer_data:
+                    self.accelerometer_values['x'].append(accelerometer_data['x'])
+                    self.accelerometer_values['y'].append(accelerometer_data['y'])
+                    self.accelerometer_values['z'].append(accelerometer_data['z'])
+                    self.update_graph()
+                time.sleep(0.1)
+
+    def parse_accelerometer_data(self)->dict:
+        """
+        For me data looks like "Ax: -4, Ay: -4, Az: 1017", write a a different code to parse your data
+        """
+        accelerometer_data_dict = {"x":0,"y":0,"z":0}
+        if "Ax" in self.serial_manager.data:
+            print("what")
+            acc_data = self.serial_manager.data
+            split_str = acc_data.split(",")
+            print(acc_data)
+            print(split_str)
+            if acc_data:
+                for index, axis in enumerate(accelerometer_data_dict.keys()):
+                    accelerometer_data_dict[axis] = int(split_str[index].split(":")[1])
+            return accelerometer_data_dict
+        return None
+
+    def update_graph(self):
+        """
+        Update the graph with accelerometer values.
+        """
+        print("Plotting Graph")
+        self.ax.clear()
+        self.ax.plot(self.accelerometer_values['x'], label='X-axis')
+        self.ax.plot(self.accelerometer_values['y'], label='Y-axis')
+        self.ax.plot(self.accelerometer_values['z'], label='Z-axis')
+        self.ax.legend()
+        self.ax.set_title('Accelerometer Values')
+        self.ax.set_xlabel('Time')
+        self.ax.set_ylabel('Acceleration')
+        self.figure_canvas.draw()
+
     def run_gui(self) -> None:
         """
         Run the GUI application.
@@ -109,9 +165,16 @@ class GUIManager:
         self.root = tk.Tk()
         self.root.title("Python GUI for CLI")
 
+        # Create Matplotlib figure and embed it into Tkinter window
+        self.figure, self.ax = plt.subplots()
+        self.figure_canvas = FigureCanvasTkAgg(self.figure, master=self.root)
+        self.figure_canvas.get_tk_widget().pack(side=tk.LEFT, padx=5, pady=5)
+
         # Create scrollable text box
         self.text_box = scrolledtext.ScrolledText(self.root, width=60, height=20, wrap=tk.WORD)
         self.text_box.pack(pady=10)
+
+
 
         # Add initial text to the text box
         self.text_box.insert(tk.END, self.FixedStrings.WELCOME_MESSAGE.value)
@@ -119,6 +182,8 @@ class GUIManager:
         # Auto-scroll when more text is added
         self.text_box.bind("<<Modified>>", self.scroll_to_bottom)
         self.text_box.bind("<Configure>", self.scroll_to_bottom)
+
+        
 
         # Create buttons
         reset_button_cli = tk.Button(self.root, text="Reset CLI", command=self.reset_text)
@@ -139,6 +204,12 @@ class GUIManager:
         reset_button = tk.Button(self.root, text="Reset Device", command=lambda: self.serial_manager.send_data(self.CLICommands.RESET.value))
         reset_button.pack(side=tk.LEFT, padx=5, pady=5)
 
+        graph_start_button = tk.Button(self.root, text="Start Graph", command=lambda: self.graph_event.set())
+        graph_start_button.pack(side=tk.BOTTOM, padx=5, pady=5)
+        
+        graph_stop_button = tk.Button(self.root, text="Stop Graph", command=lambda: self.graph_event.clear())
+        graph_stop_button.pack(side=tk.BOTTOM, padx=5, pady=5)
+
         close_button = tk.Button(self.root, text="Close CLI", command=self.close_window)
         close_button.pack(side=tk.LEFT, padx=5, pady=5)
 
@@ -146,6 +217,8 @@ class GUIManager:
         self.canvas = tk.Canvas(self.root, width=30, height=30)
         self.canvas.pack(side=tk.LEFT, padx=5, pady=5)
         self.light_indicator = self.canvas.create_oval(5, 5, 25, 25, fill="red")
+
+        
 
         self.root.mainloop()
 

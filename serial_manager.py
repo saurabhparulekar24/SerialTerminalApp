@@ -21,6 +21,7 @@ class SerialManager:
         self.print_device = print_device
         self.send_event = Event()
         self.ser = None
+        self.data = None
 
     def read_serial(self) -> None:
         """
@@ -30,8 +31,9 @@ class SerialManager:
             if self.ser:
                 while True:
                     if self.ser.in_waiting > 0:
-                        data = self.ser.readline().decode().strip()
-                        self.print_device(data)
+                        self.data = self.ser.readline().decode().strip()
+                        self.print_device(self.data)
+                        print(self.data)
         except KeyboardInterrupt:
             self.print_gui("Serial reading stopped by user.")
         except serial.SerialException as e:
